@@ -1,0 +1,102 @@
+parameters:
+  - name: dbname
+    displayName: dbname
+    type: object
+    default: 'dms_'
+
+  
+
+trigger: none
+
+pool:
+
+  name: Azure Pipelines
+
+steps:
+
+
+- task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@0
+  displayName: 'Install Terraform 0.13.4'
+  inputs:
+    terraformVersion: 0.13.4
+
+
+
+
+- task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV2@2
+
+  displayName: 'Terraform : aws init'
+
+  inputs:
+
+    provider: aws
+    
+    commandOptions: '-upgrade'
+
+    backendServiceAWS: 'terraform-aws-credential'
+
+    backendAWSBucketName: 'terraform-backend-danone'
+
+    backendAWSKey: 'dev_${{ parameters.dbname }}_prod/terraform_state'
+
+
+
+- task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV2@2
+
+  displayName: 'Terraform : aws plan'
+
+  inputs:
+
+    provider: aws
+
+    command: plan
+    
+    commandOptions: '-var="glue_database=${{ parameters.dbname }}" -var="username_rds_account=$(username db3dms)" -var="password_rds_account=$(password db3dms)"'
+  
+
+    environmentServiceNameAWS: 'terraform-aws-credential'
+
+
+
+- task: ms-devlabs.custom-terraform-tasks.custom-terraform-release-task.TerraformTaskV2@2
+
+  displayName: 'Terraform : aws apply'
+
+  inputs:
+
+    provider: aws
+
+    command: apply
+    
+    commandOptions: '-var="glue_database=${{ parameters.dbname }}" -var="username_rds_account=$(username db3dms)" -var="password_rds_account=$(password db3dms)"'
+
+
+    environmentServiceNameAWS: 'terraform-aws-credential'
+
+
+
+
+- task: AmazonWebServices.aws-vsts-tools.AWSCLI.AWSCLI@1
+
+  displayName: 'Run Glue Crawler'
+
+  inputs:
+
+    awsCredentials: 'AWS_danis.it.iman'
+
+    regionName: 'ap-southeast-1'
+
+    awsCommand: glue
+
+    awsSubCommand: 'start-crawler'
+
+    awsArguments: '--name ${{ parameters.dbname }}_crawler'
+
+    failOnStandardError: false
+
+
+
+
+
+
+
